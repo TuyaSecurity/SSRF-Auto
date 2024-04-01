@@ -1,41 +1,28 @@
 package burp;
 
-
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.StringTokenizer;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Tools {
-    /**
-     * 做一个以.的字符串分割
-     *
-     * @param inputString
-     * @param delimiter
-     * @return
-     */
-    public List<String> splitStringToList(String inputString, String delimiter) {
-        List<String> partsList = new ArrayList<>();
-        StringTokenizer tokenizer = new StringTokenizer(inputString, delimiter);
-        while (tokenizer.hasMoreTokens()) {
-            partsList.add(tokenizer.nextToken());
-        }
-        return partsList;
 
+    private OkHttpClient client = new OkHttpClient();
+
+    public static final Pattern PARAM_PATTERN = Pattern.compile("\\?.*$");
+
+    public Tools() {
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
+                .build();
     }
 
     /**
@@ -47,9 +34,9 @@ public class Tools {
      */
     public String replaceAfterQuestionMark(String input, String replacement) {
         // 创建正则表达式匹配模式
-        Pattern pattern = Pattern.compile("\\?.*$");
+//        Pattern pattern = Pattern.compile("\\?.*$");
         // 使用 Matcher 进行匹配
-        Matcher matcher = pattern.matcher(input);
+        Matcher matcher = PARAM_PATTERN.matcher(input);
         // 查找匹配
         if (matcher.find()) {
             // 获取匹配到的位置
@@ -77,94 +64,67 @@ public class Tools {
         return headerlist;
     }
 
-    public void HTTP_request(IRequestInfo requestInfo, String new_url) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            // 创建 GET 请求
-            HttpGet httpGet = new HttpGet(new_url);
-            // 设置请求的连接超时时间和读取超时时间（单位：毫秒）
-            int timeout = 2000; // 0.5秒
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(timeout)
-                    .setSocketTimeout(timeout)
-                    .build();
-
-            httpGet.setConfig(requestConfig);
-            // 添加自定义 Header
-            for (String s : Get_header_list(requestInfo)) {
-                String[] parts = s.split(":", 2);
+    public void HTTP_request(IRequestInfo requestInfo, String new_url, IBurpExtenderCallbacks callbacks, ITextEditor textEditor, List<String> logRequestList) throws IOException {
+        Request.Builder requestBuilder = new Request.Builder().url(new_url);
+        // 添加原来的header
+        for (String s : Get_header_list(requestInfo)) {
+            String[] parts = s.split(":", 2);
+            if (parts.length >= 2) {
                 String key = parts[0].trim();
                 String value = parts[1].trim();
-                httpGet.setHeader(key, value);
-            }
-            try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-                // 获取响应状态码
-//                int statusCode = response.getStatusLine().getStatusCode();
-//
-//                // 获取响应内容
-//                HttpEntity entity = response.getEntity();
-//                String responseBody = EntityUtils.toString(entity);
-//
-//                // 输出响应状态码和响应内容
-//                System.out.println("Get-----Response Body: " + responseBody);
+                requestBuilder.addHeader(key, value);
             }
         }
-
+        Request request = requestBuilder.build();
+        try {
+            String logReuquest = "\n-------------Get Replace Request-------------------\n" + request.url().toString() + '\n' + request.headers().toString();
+            logRequestList.add(logReuquest);
+            textEditor.setText(StringUtils.join(logRequestList, '\n').getBytes());
+            client.newCall(request).execute().close();
+            // 获取响应的状态码
+        } catch (IOException e) {
+            callbacks.printError("Get Request Error" + new_url + '\n');
+        }
     }
 
-    public void Post_request(IRequestInfo requestInfo, String new_body) throws IOException {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            // 创建 Post请求
-            HttpPost httpPost = new HttpPost(requestInfo.getUrl().toString());
-
-
-            // 设置请求的连接超时时间和读取超时时间（单位：毫秒）
-            int timeout = 2000; // 0.5秒
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(timeout)
-                    .setSocketTimeout(timeout)
-                    .build();
-            httpPost.setConfig(requestConfig);
-
-            // 添加自定义 Header
-            for (String s : Get_header_list(requestInfo)) {
-                String[] parts = s.split(":", 2);
-                String key = parts[0].trim();
-                String value = parts[1].trim();
-                if(!key.contains("Content-Length")) {
-                    System.out.println(key);
-                    httpPost.setHeader(key, value);
+    public void otherRequest(IRequestInfo requestInfo, String newBody, IBurpExtenderCallbacks callbacks, ITextEditor textEditor, List<String> logRequestList) throws IOException {
+        RequestBody requestBody = RequestBody.create(MediaType.parse("text/plain"), newBody);
+        Request.Builder requestBuilder = new Request.Builder().url(requestInfo.getUrl().toString());
+        // 将原来的Header加入
+        for (String s : Get_header_list(requestInfo)) {
+            String[] parts = s.split(":", 2);
+            String key = parts[0].trim();
+            String value = parts[1].trim();
+            if (!key.contains("Content-Length")) {
+                requestBuilder.addHeader(key, value);
+            }
+        }
+        switch (requestInfo.getMethod().toLowerCase()) {
+            case "post":
+                requestBuilder.post(requestBody);
+                break;
+            case "put":
+                requestBuilder.put(requestBody);
+                break;
+            case "delete":
+                if (newBody.isEmpty()) {
+                    requestBuilder.delete();
+                } else {
+                    requestBuilder.delete(requestBody);
                 }
-            }
-            StringEntity entity = new StringEntity(new_body);
-            httpPost.setEntity(entity);
-            HttpResponse response = httpClient.execute(httpPost);
-//            String responseBody = EntityUtils.toString(response.getEntity());
-//            System.out.println("Post----Response: " + responseBody);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid HTTP method: " + requestInfo.getMethod().toLowerCase());
         }
-    }
-
-    /**
-     * 判断是否能匹配到域名
-     *
-     * @param input
-     * @param regex
-     * @return
-     */
-    public boolean hasMatch(String input, String regex) {
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(input);
-        return matcher.find();
-    }
-
-    public boolean blacklist(String host) {
-        List<String> list = List.of("baidu", "google", "firefox", "edge", "github", "gitee", "csdn", "sougou");
-        for (String str : list) {
-            if (StringUtils.indexOf(host, str) > -1) {
-                return true;
-            }
+        Request request = requestBuilder.build();
+        try {
+            String LogRequest = "\n-------------Post Replace Request -------------------\n" + request.url().toString() + '\n' + request.headers().toString() + '\n' + newBody;
+            logRequestList.add(LogRequest);
+            textEditor.setText(StringUtils.join(logRequestList, '\n').getBytes());
+            client.newCall(request).execute().close();
+        } catch (IOException e) {
+            callbacks.printError("Post Request Error" + request.url().toString() + '\n');
         }
-        return false;
-
     }
 
 
