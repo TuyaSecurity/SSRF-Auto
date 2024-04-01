@@ -1,22 +1,22 @@
-# SSRF-Auto
-- Burp-plugin to check SSRF
-**@涂鸦安全实验室-文鸯**
+## By: 涂鸦安全实验室-文鸯
 
-* 使用方法
-<img width="1278" alt="image" src="https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/95d28487-ad4f-40a1-9da2-37c182756db8">
+### 使用方法
+- 日志（增加了替换数据包的日志展示）
 
-* 当ceye的信息填写完成并开启插件后，遇到可能存在SSRF的地方会在proxy-http history中红色高亮显示
-![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/ad6a9e13-dca0-4fde-a577-0ac5334a262c)
+![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/8c3f9a66-0ad1-4a5f-888e-5978ff1aecf2)
 
+- 过滤（增加了Url和domain的过滤）
 
-* 使用method + '.' + host + path + ".XXX.ceye.io"的形式替换IP/域名
-  
-  method： get/psot
+![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/b9795460-51b4-4f9a-98c3-0a9a5ba0d2aa)
 
-  host： 请求的IP/域名
+- 返回结果
+![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/d5ba0154-c4af-4437-ab26-1bc0c4b3bd2b)
+这里是从burp的dns拉取到的数据，这里时间就不处理了大家自己➕8就好😂
+**但是这里有个小问题，burp传给我的queryValue数据base64后会有乱码问题，换了其他编码也还是乱码，这个是我通过字符串加工出来的数据，有时重复的内容会有空白出现，不会有什么影响。**
 
-  path： 请求的路径
+> ![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/09a68355-6e20-4523-856e-5533ef3fa08c)异步做的请求，对于存在ssrf问题的地方，会在http history中红色高亮显示
 
+>![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/d73d48ad-1fb8-4093-8f10-f0f4db4bda43)会在burp extensions功能出会展示每一次从burp申请的paylaod
 
 
 # 免责声明
