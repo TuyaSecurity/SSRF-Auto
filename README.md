@@ -3,7 +3,7 @@
 ### 使用方法
 - 日志（增加了替换数据包的日志展示）
 
-![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/8c3f9a66-0ad1-4a5f-888e-5978ff1aecf2)
+![image](https://github.com/TuyaSecurity/SSRF-Auto/assets/59638836/c64daf0b-12f8-47b8-9f1e-f11844fcf714)
 
 - 过滤（增加了Url和domain的过滤）
 
