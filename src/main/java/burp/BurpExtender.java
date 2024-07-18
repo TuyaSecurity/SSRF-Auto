@@ -403,6 +403,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener, ITab {
         String host = url.getHost();
         String method = requestInfo.getMethod().toLowerCase();
         String replacement = method + '.' + host + path + '.' + payload;
+        originalBody = callbacks.getHelpers().urlDecode(originalBody);
         Matcher matcher = REGEX_PATTERN.matcher(originalBody);
         StringBuffer sb = new StringBuffer();
         boolean isFound = false;
